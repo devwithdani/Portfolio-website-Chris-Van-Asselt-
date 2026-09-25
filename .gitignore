@@ -2,3 +2,6 @@ font-source.css
 prepare.py
 publish-source.mjs
 *.tar.gz
+.qa-*
+inspect-video.py
+motion-fonts.css
