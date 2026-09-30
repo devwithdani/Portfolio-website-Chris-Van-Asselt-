@@ -1,7 +1,4 @@
-font-source.css
-prepare.py
+# Local publishing helper and build archives
 publish-source.mjs
 *.tar.gz
 .qa-*
-inspect-video.py
-motion-fonts.css
