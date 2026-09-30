@@ -27,6 +27,19 @@
   gsap.registerPlugin(ScrollTrigger, SplitText);
   ScrollTrigger.config({ ignoreMobileResize: true });
 
+  // Wheel steps are eased into one continuous glide (touch keeps native scrolling).
+  let smoother = null;
+  if (typeof ScrollSmoother !== 'undefined') {
+    gsap.registerPlugin(ScrollSmoother);
+    smoother = ScrollSmoother.create({
+      wrapper: '#smooth-wrapper',
+      content: '#smooth-content',
+      smooth: prefersMotion() ? 1.2 : 0,
+      effects: false,
+      ignoreMobileResize: true,
+    });
+  }
+
   /* ------------------------------------------------------------------------
      Small shared helpers
      ------------------------------------------------------------------------ */
@@ -200,8 +213,10 @@
   }
 
   /* ------------------------------------------------------------------------
-     Hero: the header's name and portrait start as a full-width poster and
-     dock into the header as a compact wordmark while the intro assembles.
+     Hero: the sidebar's name, portrait, links and nav start out as a
+     full-width poster and assemble into the right-hand sidebar while the
+     intro builds up. Every piece rests in its sidebar spot; the poster is
+     just a transform (or size) applied on top, scrubbed back to zero.
      ------------------------------------------------------------------------ */
 
   function initHeroFlip() {
@@ -210,14 +225,19 @@
     const name = $('.brand-name');
     const nameLine = $('.brand-name-line');
     const photo = $('.brand-photo');
+    const frame = $('.brand-photo-frame');
     const social = $('.hero-social');
+    const socialLinks = $$('.social-link', social);
+    const socialTexts = $$('.social-text', social);
+    const socialIcons = $$('.social-icon', social);
     const tagline = $('.header-tagline');
     const stack = $('.header-stack');
     const navItems = $$('.header-nav a');
-    const flipped = [name, photo];
     const headerItems = [tagline, stack, ...navItems];
+    const sidebarExtras = $$('.sidebar-bio, .sidebar-locale, .brand-photo-caption, .brand-badge');
     const layout = new Map();
     const inkCanvas = document.createElement('canvas').getContext('2d');
+    const HERO_PHOTO_ASPECT = 3 / 4;
 
     // Where the capitals actually sit inside the name's line box, so the portrait can match them exactly.
     function inkBounds() {
@@ -232,8 +252,21 @@
     // Transform that moves a box measured at `rect` to `left`/`top`, scaled to `width`.
     const placeAt = (rect, left, top, width) => ({ x: left - rect.left, y: top - rect.top, scale: width / rect.width });
 
+    // The sidebar name spans the sidebar's full inner width.
+    function fitSidebarName() {
+      name.style.fontSize = '';
+      const hs = getComputedStyle(header);
+      const inner = header.clientWidth - parseFloat(hs.paddingLeft) - parseFloat(hs.paddingRight);
+      name.style.fontSize = `${parseFloat(getComputedStyle(name).fontSize) * inner / nameLine.getBoundingClientRect().width}px`;
+    }
+
     function measure() {
-      gsap.set([...flipped, ...headerItems, social], { clearProps: 'transform' });
+      gsap.set([name, social, ...headerItems], { clearProps: 'transform' });
+      gsap.set(frame, { clearProps: 'transform,width,height' });
+      gsap.set(social, { clearProps: 'columnGap' });
+      gsap.set(socialLinks, { clearProps: 'width' });
+      fitSidebarName();
+
       const W = innerWidth;
       const H = innerHeight;
       const inset = clamp(0.04 * W, 24, 80);
@@ -246,23 +279,32 @@
       const ink = inkBounds();
       const inkTop = (ink.top - n.top) / n.height;
       const inkHeight = (ink.bottom - ink.top) / n.height;
-      const p = photo.getBoundingClientRect();
-      const nameWidth = (row * 0.92 - gap) / (1 + (p.width / p.height) * inkHeight * (n.height / n.width));
+      const nameWidth = (row * 0.92 - gap) / (1 + HERO_PHOTO_ASPECT * inkHeight * (n.height / n.width));
       const nameScale = nameWidth / n.width;
       const nameHeight = n.height * nameScale;
       const nameTop = rowBottom - nameHeight;
       layout.set(name, placeAt(n, inset, nameTop, nameWidth));
       name.style.setProperty('--hero-flip', nameScale.toFixed(3));
 
+      // The portrait changes shape on the way (3:4 on the poster, taller in the sidebar), so it tweens its size.
       const capTop = nameTop + inkTop * nameHeight;
       const capHeight = inkHeight * nameHeight;
       const photoLeft = inset + nameWidth + gap;
-      const photoWidth = capHeight * (p.width / p.height);
-      layout.set(photo, placeAt(p, photoLeft, capTop, photoWidth));
+      const photoWidth = capHeight * HERO_PHOTO_ASPECT;
+      const f = frame.getBoundingClientRect();
+      layout.set(frame, { x: photoLeft - f.left, y: capTop - f.top, width: photoWidth, height: capHeight, restWidth: f.width, restHeight: f.height });
 
-      // Social links hang under the portrait, flush with its right edge.
+      // Social links read as words under the portrait, then shrink to icons in the sidebar.
       const s = social.getBoundingClientRect();
-      gsap.set(social, { x: photoLeft + photoWidth - s.width, y: rowBottom - nameHeight * 0.015 });
+      const textWidths = socialTexts.map(t => t.getBoundingClientRect().width);
+      const heroGap = 0.01 * W;
+      const heroRow = textWidths.reduce((sum, w) => sum + w, 0) + heroGap * (textWidths.length - 1);
+      layout.set(social, {
+        x: photoLeft + photoWidth - heroRow - s.left,
+        y: rowBottom - nameHeight * 0.015 - s.top,
+        heroGap, restGap: parseFloat(getComputedStyle(social).columnGap),
+        textWidths, iconWidth: socialLinks[0].getBoundingClientRect().width,
+      });
 
       // Header type is set larger on the poster: tagline + nav at 1.5vw, stack at 0.8vw.
       const headerTop = 28;
@@ -286,7 +328,28 @@
 
     measure();
     ScrollTrigger.addEventListener('refreshInit', measure);
-    gsap.set([...flipped, ...headerItems], { transformOrigin: '0 0' });
+    gsap.set([name, ...headerItems], { transformOrigin: '0 0' });
+
+    // Past the hero the footage lives on under a fluid mask instead of fading out.
+    const styles = getComputedStyle(root);
+    const liquid = window.createLiquid?.($('.liquid-canvas'), {
+      bg: styles.getPropertyValue('--bg'),
+      ink: styles.getPropertyValue('--light'),
+    });
+    const syncBackdrop = progress => {
+      if (liquid) liquid.setPaused(progress < 0.1);
+      else setHeroVideoVisible(progress < 0.4);
+    };
+
+    // The footage drifts gently against the pointer.
+    gsap.set(heroVideo, { scale: 1.06 });
+    const driftX = gsap.quickTo(heroVideo, 'xPercent', { duration: 1.4, ease: 'power3' });
+    const driftY = gsap.quickTo(heroVideo, 'yPercent', { duration: 1.4, ease: 'power3' });
+    const drift = e => {
+      driftX((0.5 - e.clientX / innerWidth) * 3);
+      driftY((0.5 - e.clientY / innerHeight) * 3);
+    };
+    addEventListener('pointermove', drift, { passive: true });
 
     const panel = $('.skills-panel');
     const heading = $('.skills-heading');
@@ -299,30 +362,41 @@
         scrub: 0.6,
         invalidateOnRefresh: true,
         onUpdate: self => {
-          setHeroVideoVisible(self.progress < 0.4);
+          syncBackdrop(self.progress);
           header.classList.toggle('is-docked', self.progress > 0.5);
         },
+        onRefresh: self => syncBackdrop(self.progress),
       },
     });
 
-    flipped.forEach(el => {
-      tl.fromTo(el,
-        { x: () => layout.get(el).x, y: () => layout.get(el).y, scale: () => layout.get(el).scale },
-        { x: 0, y: 0, scale: 1, ease: 'power2.inOut', duration: 1 }, 0);
+    const fly = { ease: 'power2.inOut', duration: 1 };
+    const from = (el, key) => () => layout.get(el)[key];
+    [name, ...headerItems].forEach(el => {
+      tl.fromTo(el, { x: from(el, 'x'), y: from(el, 'y'), scale: from(el, 'scale') }, { x: 0, y: 0, scale: 1, ...fly }, 0);
     });
-    headerItems.forEach(el => {
-      tl.fromTo(el,
-        { x: () => layout.get(el).x, y: () => layout.get(el).y, scale: () => layout.get(el).scale },
-        { x: 0, y: 0, scale: 1, ease: 'power2.inOut', duration: 0.5 }, 0);
+    tl.fromTo(frame,
+      { x: from(frame, 'x'), y: from(frame, 'y'), width: from(frame, 'width'), height: from(frame, 'height') },
+      { x: 0, y: 0, width: from(frame, 'restWidth'), height: from(frame, 'restHeight'), ...fly }, 0);
+    tl.fromTo(social,
+      { x: from(social, 'x'), y: from(social, 'y'), columnGap: from(social, 'heroGap') },
+      { x: 0, y: 0, columnGap: from(social, 'restGap'), ...fly }, 0);
+    socialLinks.forEach((link, i) => {
+      tl.fromTo(link, { width: () => layout.get(social).textWidths[i] }, { width: from(social, 'iconWidth'), ...fly }, 0);
     });
-    tl.fromTo('.hero-social', { autoAlpha: 1 }, { autoAlpha: 0, ease: 'none', duration: 0.25 }, 0)
+    tl.fromTo(socialTexts, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.45 }, 0.1)
+      .fromTo(socialIcons, { opacity: 0 }, { opacity: 0.85, ease: 'none', duration: 0.4 }, 0.55)
       .fromTo('.hero-mark', { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.25 }, 0)
-      .fromTo('.header-intro', { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.25 }, 0.3)
-      .fromTo('.hero-underline', { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.2 }, 0.75)
+      .to(stack, { opacity: 0, ease: 'none', duration: 0.3 }, 0.1)
       // The portrait dips out mid-flight so it never crosses the name.
-      .fromTo(photo, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.2 }, 0.1)
-      .to(photo, { opacity: 1, ease: 'none', duration: 0.15 }, 0.8)
-      .fromTo('.hero-video', { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.5 }, 0.2);
+      .fromTo(frame, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.2 }, 0.1)
+      .to(frame, { opacity: 1, ease: 'none', duration: 0.15 }, 0.8)
+      .fromTo(sidebarExtras, { autoAlpha: 0 }, { autoAlpha: 1, ease: 'none', duration: 0.3, stagger: 0.05 }, 0.65);
+    if (liquid) {
+      tl.fromTo('.liquid', { opacity: 0 }, { opacity: 1, ease: 'none', duration: 0.5 }, 0.2)
+        .fromTo('.hero-video-overlay', { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.5 }, 0.2);
+    } else {
+      tl.fromTo('.hero-video', { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.5 }, 0.2);
+    }
 
     revealHeading(tl, heading, 0.3);
     fadeUp(tl, $('.skills-subheading'), 1.05);
@@ -333,7 +407,36 @@
     tl.fromTo('.skills-stat-arrow', { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, ease: 'none', duration: 0.1 }, 1.45);
     tl.to({}, { duration: 0.15 }, 1.55);
 
-    return () => ScrollTrigger.removeEventListener('refreshInit', measure);
+    // Before contact the sidebar scatters off to the right, piece by piece.
+    const pieces = [name, $('.header-intro'), social, ...$$('.sidebar-bio, .sidebar-locale'), $('.header-menu'), photo];
+    const setGone = self => header.classList.toggle('is-gone', self.progress > 0.8);
+    const exit = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#transition', start: 'top 75%',
+        endTrigger: '#contact', end: 'top 30%',
+        scrub: 0.6, invalidateOnRefresh: true,
+        // Measured after the pinned sections above it have added their scroll length.
+        refreshPriority: -1,
+        onUpdate: setGone, onRefresh: setGone,
+      },
+    });
+    exit.to({}, { duration: 1 }, 0);
+    pieces.forEach((el, i) => {
+      exit.to(el, {
+        xPercent: () => (gsap.utils.random(140, 340) / (el.offsetWidth || 1)) * 100,
+        yPercent: () => (gsap.utils.random(-170, 170) / (el.offsetHeight || 1)) * 100,
+        rotate: () => gsap.utils.random(-16, 16),
+        opacity: 0, filter: 'blur(12px)', ease: 'none', duration: 0.45,
+      }, 0.1 + i * 0.055);
+    });
+
+    return () => {
+      ScrollTrigger.removeEventListener('refreshInit', measure);
+      removeEventListener('pointermove', drift);
+      liquid?.destroy();
+      name.style.fontSize = '';
+      header.classList.remove('is-gone');
+    };
   }
 
   // Mobile, reduced motion, or no-flip: the hero is a static name poster.
@@ -713,20 +816,10 @@
   }
 
   /* ------------------------------------------------------------------------
-     Section tracking: nav state, marker underline, progress
+     Section tracking: nav state, progress
      ------------------------------------------------------------------------ */
 
   const navLinks = $$('.header-nav a');
-  const navMarker = $('.nav-marker');
-  let activeLink = null;
-
-  // Slide the hand-drawn underline under the active nav item.
-  function placeNavMarker() {
-    if (!activeLink) return;
-    navMarker.style.width = `${activeLink.offsetWidth}px`;
-    navMarker.style.transform = `translateX(${activeLink.offsetLeft}px)`;
-  }
-  addEventListener('resize', debounce(placeNavMarker));
 
   function initSectionTracking() {
     const sectionData = $('#data-s');
@@ -736,9 +829,8 @@
       navLinks.forEach(link => {
         const match = $(link.getAttribute('href'))?.dataset.name === sectionName;
         link.classList.toggle('is-active', match);
-        if (match) { link.setAttribute('aria-current', 'location'); activeLink = link; } else link.removeAttribute('aria-current');
+        if (match) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
       });
-      placeNavMarker();
     };
 
     // The active section is the last one whose top has passed mid-screen.
@@ -779,6 +871,7 @@
       toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
       $('.menu-toggle-label').textContent = open ? 'Close' : 'Menu';
       document.body.style.overflow = open ? 'hidden' : '';
+      smoother?.paused(open);
     };
     toggle.addEventListener('click', () => setMenu(!menu.classList.contains('is-open')));
     document.addEventListener('keydown', e => {
@@ -792,6 +885,10 @@
       if (!target) return;
       e.preventDefault();
       setMenu(false);
+      if (smoother) {
+        smoother.scrollTo(target.id === 'hero' ? 0 : smoother.offset(target, 'top top'), prefersMotion());
+        return;
+      }
       const top = target.id === 'hero' ? 0 : target.getBoundingClientRect().top + scrollY;
       scrollTo({ top, behavior: prefersMotion() ? 'smooth' : 'auto' });
     });

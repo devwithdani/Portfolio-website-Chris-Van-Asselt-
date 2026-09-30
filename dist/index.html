@@ -49,6 +49,7 @@
 
   <div class="hero-video" aria-hidden="true">
     <video id="hero-video" muted loop playsinline autoplay preload="metadata" poster="assets/hero-poster.webp"><source src="assets/hero.mp4" type="video/mp4"></video>
+    <div class="liquid"><canvas class="liquid-canvas"></canvas></div>
     <div class="hero-video-overlay"></div>
   </div>
 
@@ -60,8 +61,12 @@
 
     <a class="brand" href="#hero" aria-label="Chris van Asselt — back to top">
       <span class="brand-photo">
-        <img class="brand-photo-img" src="assets/portrait.webp" alt="">
-        <img class="brand-photo-glitch" src="assets/portrait.webp" alt="">
+        <span class="brand-photo-frame">
+          <img class="brand-photo-img" src="assets/portrait.webp" alt="">
+          <img class="brand-photo-glitch" src="assets/portrait.webp" alt="">
+          <span class="brand-photo-caption" aria-hidden="true">Portrait / 01</span>
+        </span>
+        <span class="brand-badge" aria-hidden="true"><span class="brand-badge-text">Saint-Gobain <span class="accent">Cultilene</span></span></span>
       </span>
       <span class="brand-name" aria-hidden="true">
         <span class="brand-name-line"><span class="name-word">Chris</span> <span class="name-word name-word--accent">van Asselt</span></span>
@@ -73,8 +78,20 @@
 
     <!-- TODO: vervang href="#" door Chris' Instagram-link -->
     <div class="hero-social">
-      <a href="https://www.linkedin.com/in/chris-van-asselt-0306a5131/" target="_blank" rel="noopener noreferrer">LinkedIn <span aria-hidden="true">↗</span></a>
-      <a href="#" target="_blank" rel="noopener noreferrer">Instagram <span aria-hidden="true">↗</span></a>
+      <a class="social-link" href="https://www.linkedin.com/in/chris-van-asselt-0306a5131/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+        <span class="social-text" aria-hidden="true">LinkedIn ↗</span>
+        <svg class="social-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="3"/><path d="M7.5 10.5v6M7.5 7.3v.01M11 16.5v-6M11 13.1c0-1.7 1-2.6 2.4-2.6s2.1.9 2.1 2.6v3.4"/></svg>
+      </a>
+      <a class="social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+        <span class="social-text" aria-hidden="true">Instagram ↗</span>
+        <svg class="social-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="0.9" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </div>
+
+    <p class="sidebar-bio">Business Development Manager Cannabis<br>Saint-Gobain Cultilene · Indoor cultivator</p>
+    <div class="sidebar-locale">
+      <span class="sidebar-locale-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>Based in the Netherlands</span>
+      <span class="sidebar-locale-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Growing worldwide</span>
     </div>
 
     <div class="header-intro" aria-hidden="true">
@@ -89,7 +106,6 @@
         <a href="#fieldwork"><span class="nav-index">03</span>Fieldwork</a>
         <a href="#people"><span class="nav-index">04</span>People</a>
         <a href="#contact"><span class="nav-index">05</span>Contact</a>
-        <svg class="nav-marker" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><path class="marker-stroke" d="M3 6 C30 3, 62 3, 97 5" /></svg>
       </nav>
       <p class="menu-meta">Based in the Netherlands · Connected to the growing world</p>
     </div>
@@ -105,6 +121,8 @@
     <span class="header-progress" aria-hidden="true"><span></span></span>
   </header>
 
+  <div id="smooth-wrapper">
+  <div id="smooth-content">
   <main>
     <section id="hero" class="hero" data-name="Introduce">
       <div class="hero-portrait">
@@ -321,6 +339,8 @@
       <a class="contact-top" href="#hero">Back to top</a>
     </section>
   </main>
+  </div>
+  </div>
 
   <dialog class="lightbox" aria-label="Media viewer">
     <button type="button" class="lightbox-close" aria-label="Close">Close ×</button>
@@ -329,7 +349,9 @@
 
   <script src="vendor/gsap.min.js"></script>
   <script src="vendor/ScrollTrigger.min.js"></script>
+  <script src="vendor/ScrollSmoother.min.js"></script>
   <script src="vendor/SplitText.min.js"></script>
+  <script src="liquid.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

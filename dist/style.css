@@ -252,6 +252,18 @@ ul { list-style: none; }
 }
 .hero-video.is-retired { visibility: hidden; }
 
+/* Past the hero the footage only shows where the fluid (liquid.js) swirls it free.
+   Order inside: dimmed halftone over the video, the fluid mask, then a vignette. */
+.liquid { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.liquid::before, .liquid::after { content: ""; position: absolute; inset: 0; }
+.liquid::before {
+  background:
+    radial-gradient(circle, #0000 0 0.7px, #0b0d0a99 0.9px) 0 0 / 4px 4px,
+    color-mix(in srgb, var(--bg) 45%, transparent);
+}
+.liquid-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.liquid::after { background: radial-gradient(ellipse 75% 70% at 50% 45%, transparent 40%, #0b0d0ad9 100%); }
+
 /* ==========================================================================
    Header: the hero name docks here as a compact wordmark
    ========================================================================== */
@@ -278,7 +290,9 @@ ul { list-style: none; }
 .has-flip .site-header:not(.is-docked) .brand { pointer-events: none; }
 
 .brand-photo { position: relative; flex: none; width: 2.1rem; aspect-ratio: 3 / 4; overflow: hidden; }
+.brand-photo-frame { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; }
 .brand-photo-img, .brand-photo-glitch { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
+.brand-photo-caption, .brand-badge, .sidebar-bio, .sidebar-locale { display: none; }
 .brand-photo-glitch {
   position: absolute; inset: 0;
   opacity: 0; pointer-events: none;
@@ -359,29 +373,10 @@ ul { list-style: none; }
 }
 .nav-index { font-size: 0.7em; opacity: 0.6; }
 .header-nav a:hover, .header-nav a.is-active { color: var(--accent); }
-.nav-marker {
-  position: absolute; left: 0; top: 100%;
-  width: 1px; height: 0.55rem; margin-top: 0.15rem;
-  overflow: visible; pointer-events: none;
-  transition: transform 0.55s var(--ease-out), width 0.55s var(--ease-out);
-}
-.nav-marker .marker-stroke { stroke-width: 3px; vector-effect: non-scaling-stroke; }
 /* On the hero poster the nav reads as plain type; the active state appears once docked. */
 .has-flip .site-header:not(.is-docked) .header-nav a.is-active:not(:hover) { color: var(--light); }
-.has-flip .site-header:not(.is-docked) .nav-marker { opacity: 0; }
 
-/* Social links under the hero name, right-aligned with the portrait (placed by initHeroFlip) */
 .hero-social { display: none; }
-.has-flip .hero-social {
-  position: fixed; top: 0; left: 0;
-  display: flex; column-gap: 1vw;
-}
-.hero-social a {
-  font-family: var(--font-poster); font-size: 0.755rem; line-height: 1.5;
-  letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; color: var(--light);
-  transition: color 0.2s;
-}
-.hero-social a:hover { color: var(--accent); }
 
 .menu-meta, .menu-toggle { display: none; }
 
@@ -400,9 +395,86 @@ ul { list-style: none; }
 .site-header.is-docked .header-progress { opacity: 1; }
 
 /* ==========================================================================
+   Sidebar (wide screens with motion): the hero poster assembles into a
+   fixed column on the right. initHeroFlip measures this resting layout and
+   flies every piece in from its place on the poster.
+   ========================================================================== */
+
+:root { --sidebar-width: 20.76rem; --sidebar-gap: 1.1rem; }
+
+.has-flip .site-header {
+  left: auto; bottom: 0; width: var(--sidebar-width);
+  flex-direction: column; align-items: stretch; gap: var(--sidebar-gap);
+  padding: 2rem 1.75rem;
+}
+.has-flip .site-header.is-gone > *, .has-flip .site-header.is-gone .brand > * { pointer-events: none; }
+.has-flip .header-backdrop, .has-flip .header-progress { display: none; }
+
+.has-flip .brand { display: contents; }
+.has-flip .brand-name { order: 1; margin-bottom: 0.5rem; font-size: 2rem; }
+
+.has-flip .header-intro { order: 2; position: relative; top: auto; left: auto; }
+.has-flip .header-stack { position: absolute; top: 100%; left: 0; margin: 0; white-space: nowrap; }
+
+.has-flip .hero-social { order: 3; display: flex; align-self: flex-start; column-gap: 0.6rem; }
+.social-link { position: relative; display: block; width: 1.875rem; height: 1.875rem; color: var(--light); transition: color 0.2s; }
+.social-text {
+  position: absolute; top: 50%; left: 0; transform: translateY(-50%);
+  font-family: var(--font-poster); font-size: 0.755rem; letter-spacing: 0.1em;
+  text-transform: uppercase; white-space: nowrap;
+  opacity: 0;
+}
+.social-icon { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.85; transition: opacity 0.2s; }
+.social-link:hover { color: var(--accent); }
+.social-link:hover .social-icon { opacity: 1; }
+
+.has-flip .sidebar-bio {
+  order: 4; display: block;
+  font-size: 0.8rem; line-height: 1.5; color: var(--light); opacity: 0.75;
+}
+.has-flip .sidebar-locale { order: 5; display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; }
+.sidebar-locale-item {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-size: 0.6rem; letter-spacing: 0.04em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--light) 75%, transparent);
+}
+.sidebar-locale-item svg { flex-shrink: 0; width: 0.9rem; height: 0.9rem; color: var(--accent); }
+
+.has-flip .header-menu { order: 6; margin: 0; }
+.has-flip .header-nav { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; justify-items: start; gap: 0.6rem 0.9rem; }
+.has-flip .header-nav a { font-size: 0.85rem; letter-spacing: 0.06em; }
+
+.has-flip .brand-photo {
+  order: 7; flex: 1 1 0; min-height: 0; max-height: 26rem;
+  width: 100%; aspect-ratio: auto; overflow: visible;
+}
+.has-flip .brand-photo-frame { position: absolute; top: 0; left: 0; width: 85%; height: 100%; }
+.has-flip .brand-photo-caption {
+  position: absolute; top: 0.55rem; right: 0.55rem; z-index: 2; display: block;
+  font-family: var(--font-poster); font-size: 0.75rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: #1c1f18;
+}
+.has-flip .brand-badge { position: absolute; top: 0; right: 0; bottom: 0; width: 15%; display: grid; place-items: end center; }
+.brand-badge-text {
+  writing-mode: vertical-rl;
+  font-family: var(--font-poster); font-size: 0.85rem; letter-spacing: 0.08em;
+  text-transform: uppercase; white-space: nowrap; color: var(--light);
+}
+
+/* The page makes room for the sidebar; contact runs full width once it has left. */
+.has-flip .section:not(.contact), .has-flip .transition, .has-flip .skills-panel {
+  padding-right: calc(var(--sidebar-width) + 2rem);
+}
+.has-flip .skills-stats { gap: 2.5rem; padding-left: 3rem; }
+.has-flip .skills-stat { gap: 0.6em; }
+.has-flip .skills-stat-number { font-size: 3.3rem; }
+
+/* ==========================================================================
    Hero + intro panel
    ========================================================================== */
 
+/* ScrollSmoother fixes the wrapper to the viewport; keep it above the fixed backdrops (video, contact grid). */
+#smooth-wrapper { z-index: 2; }
 main { position: relative; z-index: 2; }
 
 .section {
@@ -923,7 +995,7 @@ main { position: relative; z-index: 2; }
 
   .site-header { gap: var(--ui); padding: calc(1.1 * var(--ui)) calc(1.4 * var(--ui)) 0; }
   .header-backdrop { bottom: calc(-2 * var(--ui)); }
-  .header-intro, .header-progress, .nav-marker, .hero-mark, .hero-underline { display: none; }
+  .header-intro, .header-progress, .hero-mark, .hero-underline { display: none; }
   .brand { gap: calc(0.6 * var(--ui)); }
   .brand-photo { width: calc(1.5 * var(--ui)); }
   .brand-name { font-size: calc(1.15 * var(--ui)); }
