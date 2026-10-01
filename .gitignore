@@ -1,4 +1,0 @@
-# Local publishing helper and build archives
-publish-source.mjs
-*.tar.gz
-.qa-*
