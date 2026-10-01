@@ -1,3 +1,15 @@
+/* ==========================================================================
+   Chris van Asselt — portfolio interactions
+
+   Preloader → fixed chrome (rulers, taglines) → background video →
+   hero poster that assembles into the sidebar → section reveals →
+   section tracking + navigation.
+
+   GSAP drives everything: ScrollTrigger for scroll-linked timelines,
+   ScrollSmoother for the eased wheel scrolling, SplitText for the
+   character reveals. liquid.js supplies the fluid background.
+   ========================================================================== */
+
 (() => {
   'use strict';
 
@@ -144,7 +156,7 @@
   }
 
   /* ------------------------------------------------------------------------
-     Rulers, cursor readout, taglines, background video
+     Rulers, cursor readout, taglines
      ------------------------------------------------------------------------ */
 
   function initRulers() {
@@ -196,20 +208,57 @@
     }, 2400);
   }
 
-  // Reduced-motion visitors get the poster frame instead of the moving video.
+  /* ------------------------------------------------------------------------
+     Background video. Reduced-motion visitors get the poster frame instead.
+     ------------------------------------------------------------------------ */
+
+  const heroVideoLayer = $('.hero-video');
   const videoStill = !prefersMotion();
   let heroVideoVisible = true;
 
   function syncHeroVideo() {
     const playing = heroVideoVisible && !videoStill;
     if (playing) heroVideo.play().catch(() => {}); else heroVideo.pause();
-    $('.hero-video').classList.toggle('is-retired', !heroVideoVisible);
+    heroVideoLayer.classList.toggle('is-retired', !heroVideoVisible);
   }
 
   function setHeroVideoVisible(visible) {
     if (visible === heroVideoVisible) return;
     heroVideoVisible = visible;
     syncHeroVideo();
+  }
+
+  // Past the hero the footage lives on under a fluid mask instead of fading
+  // out, and it drifts gently against the pointer. Without WebGL the video
+  // simply retires once the hero has gone.
+  function initLivingBackdrop() {
+    const styles = getComputedStyle(root);
+    const liquid = window.createLiquid?.($('.liquid-canvas'), {
+      bg: styles.getPropertyValue('--bg'),
+      ink: styles.getPropertyValue('--light'),
+    });
+
+    gsap.set(heroVideo, { scale: 1.06 });
+    const driftX = gsap.quickTo(heroVideo, 'xPercent', { duration: 1.4, ease: 'power3' });
+    const driftY = gsap.quickTo(heroVideo, 'yPercent', { duration: 1.4, ease: 'power3' });
+    const drift = e => {
+      driftX((0.5 - e.clientX / innerWidth) * 3);
+      driftY((0.5 - e.clientY / innerHeight) * 3);
+    };
+    addEventListener('pointermove', drift, { passive: true });
+
+    return {
+      hasLiquid: Boolean(liquid),
+      // Called with the hero timeline's progress.
+      sync(progress) {
+        if (liquid) liquid.setPaused(progress < 0.1);
+        else setHeroVideoVisible(progress < 0.4);
+      },
+      destroy() {
+        removeEventListener('pointermove', drift);
+        liquid?.destroy();
+      },
+    };
   }
 
   /* ------------------------------------------------------------------------
@@ -261,9 +310,9 @@
     }
 
     function measure() {
-      gsap.set([name, social, ...headerItems], { clearProps: 'transform' });
+      gsap.set([name, ...headerItems], { clearProps: 'transform' });
       gsap.set(frame, { clearProps: 'transform,width,height' });
-      gsap.set(social, { clearProps: 'columnGap' });
+      gsap.set(social, { clearProps: 'transform,columnGap' });
       gsap.set(socialLinks, { clearProps: 'width' });
       fitSidebarName();
 
@@ -330,26 +379,7 @@
     ScrollTrigger.addEventListener('refreshInit', measure);
     gsap.set([name, ...headerItems], { transformOrigin: '0 0' });
 
-    // Past the hero the footage lives on under a fluid mask instead of fading out.
-    const styles = getComputedStyle(root);
-    const liquid = window.createLiquid?.($('.liquid-canvas'), {
-      bg: styles.getPropertyValue('--bg'),
-      ink: styles.getPropertyValue('--light'),
-    });
-    const syncBackdrop = progress => {
-      if (liquid) liquid.setPaused(progress < 0.1);
-      else setHeroVideoVisible(progress < 0.4);
-    };
-
-    // The footage drifts gently against the pointer.
-    gsap.set(heroVideo, { scale: 1.06 });
-    const driftX = gsap.quickTo(heroVideo, 'xPercent', { duration: 1.4, ease: 'power3' });
-    const driftY = gsap.quickTo(heroVideo, 'yPercent', { duration: 1.4, ease: 'power3' });
-    const drift = e => {
-      driftX((0.5 - e.clientX / innerWidth) * 3);
-      driftY((0.5 - e.clientY / innerHeight) * 3);
-    };
-    addEventListener('pointermove', drift, { passive: true });
+    const backdrop = initLivingBackdrop();
 
     const panel = $('.skills-panel');
     const heading = $('.skills-heading');
@@ -362,10 +392,10 @@
         scrub: 0.6,
         invalidateOnRefresh: true,
         onUpdate: self => {
-          syncBackdrop(self.progress);
+          backdrop.sync(self.progress);
           header.classList.toggle('is-docked', self.progress > 0.5);
         },
-        onRefresh: self => syncBackdrop(self.progress),
+        onRefresh: self => backdrop.sync(self.progress),
       },
     });
 
@@ -391,7 +421,7 @@
       .fromTo(frame, { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.2 }, 0.1)
       .to(frame, { opacity: 1, ease: 'none', duration: 0.15 }, 0.8)
       .fromTo(sidebarExtras, { autoAlpha: 0 }, { autoAlpha: 1, ease: 'none', duration: 0.3, stagger: 0.05 }, 0.65);
-    if (liquid) {
+    if (backdrop.hasLiquid) {
       tl.fromTo('.liquid', { opacity: 0 }, { opacity: 1, ease: 'none', duration: 0.5 }, 0.2)
         .fromTo('.hero-video-overlay', { opacity: 1 }, { opacity: 0, ease: 'none', duration: 0.5 }, 0.2);
     } else {
@@ -407,8 +437,18 @@
     tl.fromTo('.skills-stat-arrow', { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, ease: 'none', duration: 0.1 }, 1.45);
     tl.to({}, { duration: 0.15 }, 1.55);
 
-    // Before contact the sidebar scatters off to the right, piece by piece.
-    const pieces = [name, $('.header-intro'), social, ...$$('.sidebar-bio, .sidebar-locale'), $('.header-menu'), photo];
+    const cleanupExit = initSidebarExit([name, $('.header-intro'), social, ...$$('.sidebar-bio, .sidebar-locale'), $('.header-menu'), photo]);
+
+    return () => {
+      ScrollTrigger.removeEventListener('refreshInit', measure);
+      backdrop.destroy();
+      cleanupExit();
+      name.style.fontSize = '';
+    };
+  }
+
+  // Before contact the sidebar scatters off to the right, piece by piece.
+  function initSidebarExit(pieces) {
     const setGone = self => header.classList.toggle('is-gone', self.progress > 0.8);
     const exit = gsap.timeline({
       scrollTrigger: {
@@ -430,13 +470,7 @@
       }, 0.1 + i * 0.055);
     });
 
-    return () => {
-      ScrollTrigger.removeEventListener('refreshInit', measure);
-      removeEventListener('pointermove', drift);
-      liquid?.destroy();
-      name.style.fontSize = '';
-      header.classList.remove('is-gone');
-    };
+    return () => header.classList.remove('is-gone');
   }
 
   // Mobile, reduced motion, or no-flip: the hero is a static name poster.

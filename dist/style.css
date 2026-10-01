@@ -8,18 +8,24 @@
 @font-face { font-family: Anton; src: url(assets/anton.woff2) format("woff2"); font-weight: 400; font-display: swap; }
 @font-face { font-family: Marker; src: url(assets/marker.woff2) format("woff2"); font-weight: 400; font-display: swap; }
 
-html { font-size: min(1.0596vw, 2.276vh); }
+html {
+  font-size: min(1.0596vw, 2.276vh);
+  scrollbar-color: var(--accent) var(--bg);
+  scrollbar-width: thin;
+  overflow: hidden auto;
+}
 
 :root {
   --bg: #11140f;
   --bg-deep: #0b0d0a;
   --light: #e7e5db;
   --accent: #a3b86c;
-  --muted: #4d5a3a;
   --font-body: "Satoshi", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-poster: "Anton", Impact, "Arial Narrow", sans-serif;
   --font-hand: "Marker", "Comic Sans MS", cursive;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --sidebar-width: 20.76rem;
+  --sidebar-gap: 1.1rem;
 }
 
 @media (aspect-ratio < 4/3) {
@@ -30,12 +36,6 @@ html { font-size: min(1.0596vw, 2.276vh); }
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-html {
-  scrollbar-color: var(--accent) var(--bg);
-  scrollbar-width: thin;
-  overflow: hidden auto;
-}
 
 body {
   background: var(--bg);
@@ -240,7 +240,7 @@ ul { list-style: none; }
 .fixed-datas .fixed-datas-section { width: 12ch; padding-left: 1ch; }
 
 /* ==========================================================================
-   Hero background video
+   Background video + liquid layer
    ========================================================================== */
 
 .hero-video { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
@@ -265,7 +265,8 @@ ul { list-style: none; }
 .liquid::after { background: radial-gradient(ellipse 75% 70% at 50% 45%, transparent 40%, #0b0d0ad9 100%); }
 
 /* ==========================================================================
-   Header: the hero name docks here as a compact wordmark
+   Header: a compact top bar on mobile and with reduced motion.
+   On wide screens with motion the sidebar section below restyles it.
    ========================================================================== */
 
 .site-header {
@@ -292,7 +293,6 @@ ul { list-style: none; }
 .brand-photo { position: relative; flex: none; width: 2.1rem; aspect-ratio: 3 / 4; overflow: hidden; }
 .brand-photo-frame { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; }
 .brand-photo-img, .brand-photo-glitch { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
-.brand-photo-caption, .brand-badge, .sidebar-bio, .sidebar-locale { display: none; }
 .brand-photo-glitch {
   position: absolute; inset: 0;
   opacity: 0; pointer-events: none;
@@ -376,8 +376,8 @@ ul { list-style: none; }
 /* On the hero poster the nav reads as plain type; the active state appears once docked. */
 .has-flip .site-header:not(.is-docked) .header-nav a.is-active:not(:hover) { color: var(--light); }
 
-.hero-social { display: none; }
-
+/* Only shown by the sidebar (.has-flip) or the mobile menu */
+.hero-social, .sidebar-bio, .sidebar-locale, .brand-photo-caption, .brand-badge,
 .menu-meta, .menu-toggle { display: none; }
 
 .header-progress {
@@ -399,8 +399,6 @@ ul { list-style: none; }
    fixed column on the right. initHeroFlip measures this resting layout and
    flies every piece in from its place on the poster.
    ========================================================================== */
-
-:root { --sidebar-width: 20.76rem; --sidebar-gap: 1.1rem; }
 
 .has-flip .site-header {
   left: auto; bottom: 0; width: var(--sidebar-width);
@@ -470,7 +468,7 @@ ul { list-style: none; }
 .has-flip .skills-stat-number { font-size: 3.3rem; }
 
 /* ==========================================================================
-   Hero + intro panel
+   Page layout
    ========================================================================== */
 
 /* ScrollSmoother fixes the wrapper to the viewport; keep it above the fixed backdrops (video, contact grid). */
@@ -482,6 +480,10 @@ main { position: relative; z-index: 2; }
   min-height: 100svh;
   padding: 4rem 4rem 4rem 2rem;
 }
+
+/* ==========================================================================
+   Hero + intro panel
+   ========================================================================== */
 
 .hero { position: relative; }
 

@@ -121,6 +121,8 @@ window.createLiquid = (() => {
   const VELOCITY_DISSIPATION = 0.9;
   const CANVAS_SCALE = 0.75;
 
+  const random = (min, max) => min + Math.random() * (max - min);
+
   const hexToRgb = hex => {
     let h = hex.trim().replace('#', '');
     if (h.length === 3) h = [...h].map(c => c + c).join('');
@@ -280,9 +282,9 @@ window.createLiquid = (() => {
 
     const pending = [];
     function drop(x, y) {
-      const size = splatRadius * gsap.utils.random(...DROP.size);
+      const size = splatRadius * random(...DROP.size);
       const reach = Math.sqrt(size) * height * DROP.reach;
-      const force = gsap.utils.random(...DROP.force);
+      const force = random(...DROP.force);
       const start = Math.random() * Math.PI * 2;
       pending.push({ x, y, dx: 0, dy: 0, size });
       for (let i = 0; i < DROP.arms; i++) {
@@ -379,9 +381,9 @@ window.createLiquid = (() => {
       clearTimeout(dropTimer);
       if (paused) return;
       dropTimer = setTimeout(() => {
-        if (!document.hidden) drop(gsap.utils.random(0.1, 0.9) * width, gsap.utils.random(0.1, 0.9) * height);
+        if (!document.hidden) drop(random(0.1, 0.9) * width, random(0.1, 0.9) * height);
         scheduleDrop();
-      }, gsap.utils.random(...DROP.gap));
+      }, random(...DROP.gap));
     }
 
     // A slow Lissajous path, so the drift never repeats in an obvious loop.
